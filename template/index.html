@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Video Out reach</title>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+
+</head>
+<body>
+	<script>
+    var s = document.createElement("script");
+    // s.src = "https://s3.amazonaws.com/hippovideo-embed-widget/js/hippovideo-embed-script.js";
+    s.src = 'https://s3.amazonaws.com/hippovideo-embed-widget-beta/js/hippovideo-embed-script-v2.js';
+    window.setDigestOnStart = true;
+    s.async = true;
+    window.hippovideoDigest = "grPmfFuiRh548g-tGQedp63EasiHUOymsA2gNrLldfg";
+    window.hvintegtype = "generic_embed";
+    window.hippoWidget = {
+        loadedCallbacks: [],
+        isLoaded: false,
+        onLoad: function (callback) {
+            if (window.hippoWidget.isLoaded == true) callback();
+            else window.hippoWidget.loadedCallbacks.push(callback);
+        },
+    };
+    document.head.appendChild(s);
+</script>
+
+	<script>
+    function startRecording() {
+        var recordingConfiguration = {
+            // Any other configuration required
+            screenRecord: true,
+            audio: true,
+            webCam: true,
+            resolution: "1080",
+            initiator: 'generic_embed',
+            extensionlessRecording: true, // recording without extension
+            separateWebcamLayer: false // removes the additional webcam preview layer
+        };
+        window.hippoWidget.startRecording(recordingConfiguration);
+    }
+
+    function startRecordingWithoutScreen() {
+        var recordingConfiguration = {
+            // Any other configuration required
+            screenRecord: false,
+            audio: true,
+            webCam: true,
+            resolution: "1080",
+            initiator: 'generic_embed'
+        };
+        window.hippoWidget.startRecording(recordingConfiguration);
+    }
+
+    function importVideo() {
+        window.hippoWidget.import();
+    }
+</script>
+	<div class="content">
+
+    <div class="container-fluid">
+        <div class="row">
+        	<div class="col-md-6">
+                <div class="card ">
+                    <div class="card-header ">
+                        <h4 class="card-title">Hippovideo</h4>
+                    </div>
+                    <div class="card-body">
+
+                        <button id="startRecording1" onclick="startRecording()">Record Video</button>
+                        <button id="startRecording2" onclick="startRecordingWithoutScreen()">Record Video Without Screen</button>
+                        <button id="importVideo" onclick="importVideo()">Import Video</button>
+
+
+                        <!-- Place the below html div in your page where you want the Hippo Video Record to appear. Keep the same div id but you can add style/css to this Record button div -->
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card ">
+                    <div class="card-header ">
+                        <h4 class="card-title">Screen Recoder</h4>
+                    </div>
+                    <div class="card-body">
+
+                        <input type="button" id="RecordingStarting"  value="Start Recording" />
+                        
+                        <input type="button" id="stopRecording"  value="Stop Recording" disabled/>
+                       
+                       <input type="button" id="uploadhippo"  value="Upload Hippo File" disabled />
+
+                    </div>
+                </div>
+                <div class="link_data">
+                  	<!-- Here Add Dynamic Message When serevr send message -->
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+      let start = document.getElementById('RecordingStarting');
+        let stop = document.getElementById('stopRecording');
+        let webcame = document.getElementById('vid2');
+        let screen = document.getElementById('vid3');
+        let completeWebCamblob
+
+        let screen_cap ={
+            video: { 
+              mediaSource: "screen", 
+              frameRate: 30,
+             },
+            audio : false
+          };
+        let webcame_cap = { 
+            video: { 
+                width: { min: 640, ideal: 1280, max: 1920 },
+                height: { min: 480, ideal: 720, max: 1080 } ,
+                frameRate: 60,
+            } ,
+            audio: true, 
+        }; 
+
+
+        async function startCapture() {
+          // body...
+          try{
+              cameraStream = await navigator.mediaDevices.getUserMedia(webcame_cap);
+              videoStream = await navigator.mediaDevices.getDisplayMedia(screen_cap);
+
+              webcame_recorder = new MediaRecorder(cameraStream);
+              videoStream_recorder = new MediaRecorder(videoStream);
+
+        const chunks = [];
+        webcame_recorder.ondataavailable = e => chunks.push(e.data);
+        webcame_recorder.onstop = e => {
+          completeWebCamblob = new Blob(chunks, { type: "video\/mp4" });
+          console.log(completeWebCamblob)
+        };
+        webcame_recorder.start();
+
+        const web_chunks = [];
+        videoStream_recorder.ondataavailable = e => web_chunks.push(e.data);
+        videoStream_recorder.onstop = e => {
+         const completeBlob = new Blob(web_chunks, { type: "video\/mp4" });
+          console.log(completeBlob)
+          send_data(completeWebCamblob,completeBlob);
+        };
+        videoStream_recorder.start();
+          }
+          catch(err){
+            console.error("Error = "+err);
+          }
+        }
+        start.addEventListener('click', (ev)=>{
+          start.setAttribute("disabled", true);
+          stop.removeAttribute("disabled");
+          document.getElementById('uploadhippo').setAttribute("disabled", true);
+            
+            startCapture();
+        })
+        stop.addEventListener('click', (ev)=>{
+          stop.setAttribute("disabled", true);
+          start.removeAttribute("disabled");
+            
+            webcame_recorder.stop();
+            cameraStream.getVideoTracks()[0].stop();
+
+            videoStream_recorder.stop();
+            videoStream.getVideoTracks()[0].stop();
+
+            cameraStream.getTracks() // get all tracks from the MediaStream
+          .forEach( track => track.stop() ); // stop each of them
+
+           videoStream.getTracks() // get all tracks from the MediaStream
+          .forEach( track => track.stop() ); // stop each of them
+          // stopCapture()
+           
+        });
+
+</script>
+
+<script type="text/javascript">
+  function  send_data(cam_data,screen_data){
+  console.log(cam_data)
+  console.log(screen_data)
+  let fd = new FormData();
+  let request = new XMLHttpRequest();
+  let file1 = new File([cam_data], 'camera');
+  let file2 = new File([screen_data], 'screen');
+  fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+  fd.append('data1', file1);
+  fd.append('data2', file2);
+  request.open("POST",  "VideoViewer", true);
+  request.send(fd); // hits the route but doesn't send the file
+  request.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) {
+      var jsonResponse = JSON.parse(this.responseText);
+      console.log(jsonResponse["url"]);
+      alert(jsonResponse['message']);
+      $(".link_data").empty();
+      $(".link_data").append("<video id='show_video' src='"+jsonResponse['url']+"' controls style='width: 300px; height:400px;''></video>");
+      document.getElementById('uploadhippo').removeAttribute("disabled");
+    }
+  };
+  }
+
+</script>
+
+<!-- uPLOAD fILE IN HIPPO maneger -->
+<script type="text/javascript">
+    $('#uploadhippo').click(function(){
+        $.ajax({
+               type: "POST",
+               url: "uploadhippo",
+               data: { 'csrfmiddlewaretoken': '{{ csrf_token }}'},
+               dataType: "json",
+               success: function(response) {
+                      alert(response.message);
+                      if (response.url != ''){
+                        $(".link_data").empty();
+                        $(".link_data").append("<a href='"+response.url+"' target='_blank'> Preview Uploaded Video </a>");
+                        document.getElementById('uploadhippo').setAttribute("disabled", true);
+                      }
+                },
+                error: function(rs, e) {
+                       alert(rs.responseText);
+                }
+          }); 
+    })
+  </script>
+
+</body>
+</html>
